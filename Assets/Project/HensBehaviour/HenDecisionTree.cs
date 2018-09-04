@@ -10,11 +10,12 @@ public class HenDecisionTree : MonoBehaviour {
 
     public HenPersonalities Personality;
     public HenStatus CurrentStatus;
+    private MovementGoToDelegate movDelegate;
 
     public GameObject Rooster;
+    private DecisionTree dt;
     private GameObject NearestChick;
     private GameObject NearestPlayer;
-    private NavMeshAgent agent;
 
     public LayerMask HensLayer;
     private Collider[] NearbyHens = new Collider[7];
@@ -38,11 +39,103 @@ public class HenDecisionTree : MonoBehaviour {
         if (RandomPersonality >= 0.9f) Personality = HenPersonalities.UNLIKABLE;
         CurrentStatus = HenStatus.ROAMING;
 
-        agent = GetComponent<NavMeshAgent>();
+        movDelegate = GetComponent<MovementGoToDelegate>();
 
-	}
+        // DT Decisions
 
-    // Update is called once per frame
+        // DT Actions
+
+        // DT Links
+
+        // Setup DT
+
+    }
+
+    public IEnumerator Patrol()
+    {
+        while (true)
+        {
+            dt.walk();
+            yield return new WaitForSeconds(0.5f);
+        }
+    }
+
+    //---------------------------------------------------------------- DT Decisions ----------------------------------------------------------------------
+
+    private object DistantFromRooster(object o)
+    {
+        return Vector3.Distance(Rooster.transform.position, transform.position) > 4f;
+    }
+
+    //---------------------------------------------------------------- DT Actions ----------------------------------------------------------------------
+
+    private object CatchUp(object o)
+    {
+        CurrentStatus = ChickStatus.CATCHINGUP;
+        movDelegate.SetDestination(Rooster.transform.position);
+        movDelegate.SetSpeed(6f);
+        return null;
+    }
+
+    private object GoTo(object o)
+    {
+        CurrentStatus = ChickStatus.GOINGTO;
+        GetComponent<GoToBehaviour>().ExecuteBehaviour(NearestPlayer);
+        return null;
+
+    }
+
+    private object StareAt(object o)
+    {
+        CurrentStatus = ChickStatus.STARING;
+        transform.rotation = Quaternion.LookRotation(NearestPlayer.transform.position - transform.position);
+        return null;
+    }
+
+    private object Flee(object o)
+    {
+        CurrentStatus = ChickStatus.FLEEING;
+        GetComponent<FleeBehaviour>().ExecuteBehaviour(NearestPlayer);
+        return null;
+    }
+
+    private object Engage(object o)
+    {
+        timer = 0;
+        CurrentStatus = ChickStatus.ALARM;
+        GetComponent<AlarmBehaviour>().ExecuteBehaviour(NearestPlayer);
+        return null;
+    }
+
+    private object Roam(object o)
+    {
+        CurrentStatus = ChickStatus.ROAMING;
+        GetComponent<RoamingBehaviour>().ExecuteBehaviour(Rooster);
+        return null;
+    }
+
+    private GameObject FindNearest(Collider[] Neighborgs)
+    {
+        float distance = 0f;
+        float nearestDistance = float.MaxValue;
+        GameObject NearestElement = null;
+
+        foreach (Collider NearbyElement in Neighborgs)
+        {
+            if (NearbyElement != null && NearbyElement.gameObject != gameObject)
+            {
+                distance = Vector3.Distance(NearbyElement.transform.position, transform.position);
+                if (distance < nearestDistance)
+                {
+                    nearestDistance = distance;
+                    NearestElement = NearbyElement.gameObject;
+                }
+            }
+        }
+        return NearestElement;
+    }
+
+    /* Update is called once per frame
     void Update()
     {
         if (timer < 2f) timer += Time.deltaTime;
@@ -147,34 +240,5 @@ public class HenDecisionTree : MonoBehaviour {
                 }
             }
         }
-    }
-
-    private void CatchUp()
-    {
-        agent.speed = Rooster.GetComponent<NavMeshAgent>().speed;
-        agent.SetDestination(Rooster.transform.position);
-        //transform.rotation = Quaternion.LookRotation(Rooster.transform.position - transform.position);
-        //transform.position = Vector3.MoveTowards(transform.position, Rooster.transform.position, HensParametersManager.HenSpeed * Time.deltaTime);
-    }
-
-    private GameObject FindNearest(Collider[] Neighborgs)
-    {
-        float distance = 0f;
-        float nearestDistance = float.MaxValue;
-        GameObject NearestElement = null;
-
-        foreach (Collider NearbyElement in Neighborgs)
-        {
-            if (NearbyElement != null && NearbyElement.gameObject != gameObject)
-            {
-                distance = Vector3.Distance(NearbyElement.transform.position, transform.position);
-                if (distance < nearestDistance)
-                {
-                    nearestDistance = distance;
-                    NearestElement = NearbyElement.gameObject;
-                }
-            }
-        }
-        return NearestElement;
-    }
+    }*/
 }

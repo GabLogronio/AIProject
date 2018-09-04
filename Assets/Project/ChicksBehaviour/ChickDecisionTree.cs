@@ -10,11 +10,12 @@ public class ChickDecisionTree : MonoBehaviour
 
     public ChickPersonalities Personality;
     public ChickStatus CurrentStatus;
+    private MovementGoToDelegate movDelegate;
 
     public GameObject Rooster;
+    private DecisionTree dt;
     private GameObject NearestHen;
     private GameObject NearestPlayer;
-    private NavMeshAgent agent;
 
     public LayerMask HensLayer;
     private Collider[] NearbyHens = new Collider[7];
@@ -41,24 +42,216 @@ public class ChickDecisionTree : MonoBehaviour
         if (RandomPersonality >= 0.6f && RandomPersonality < 0.7f) Personality = ChickPersonalities.SISSY;
         if (RandomPersonality >= 0.7f) Personality = ChickPersonalities.SLY;
 
-        CurrentStatus = ChickStatus.ROAMING;
-        RoosterCollider[0] = Rooster.GetComponent<Collider>();
+        movDelegate = GetComponent<MovementGoToDelegate>();
 
-        agent = GetComponent<NavMeshAgent>();
+        CurrentStatus = ChickStatus.ROAMING;
+
+        // DT Decisions
+        DTDecision dDistantFromRooster = new DTDecision(DistantFromRooster);
+        DTDecision dNearAHen = new DTDecision(NearAHen);
+        DTDecision dPlayerInRange = new DTDecision(PlayerInRange);
+        DTDecision dNoPlayerTooClose = new DTDecision(NoPlayerTooClose);
+        DTDecision dNoHenTooClose = new DTDecision(NoHenTooClose);
+        DTDecision dCowardChick = new DTDecision(CowardChick);
+        DTDecision dCockyChick = new DTDecision(CockyChick);
+        DTDecision dCuriousChick = new DTDecision(CuriousChick);
+        DTDecision dSissyChick = new DTDecision(SissyChick);
+        DTDecision dSlyChick = new DTDecision(SlyChick);
+
+        // DT Actions
+        DTAction aCatchUp = new DTAction(CatchUp);
+        DTAction aGoTo = new DTAction(GoTo);
+        DTAction aStareAt = new DTAction(StareAt);
+        DTAction aFlee = new DTAction(Flee);
+        DTAction aAlarm = new DTAction(Alarm);
+        DTAction aRoam = new DTAction(Roam);
+
+        // DT Links
+        dDistantFromRooster.AddLink(true, aCatchUp);
+        dDistantFromRooster.AddLink(false, dCowardChick);
+
+        dCowardChick.AddLink(true, dNoPlayerTooClose);
+        dCowardChick.AddLink(false, dPlayerInRange);
+
+        dPlayerInRange.AddLink(true, dNoPlayerTooClose);
+        dPlayerInRange.AddLink(false, dSissyChick);
+
+        dNoPlayerTooClose.AddLink(true, dCockyChick);
+        dNoPlayerTooClose.AddLink(false, aAlarm);
+
+        dCockyChick.AddLink(true, aGoTo);
+        dCockyChick.AddLink(false, dCuriousChick);
+
+        dCuriousChick.AddLink(true, aStareAt);
+        dCuriousChick.AddLink(false, dSlyChick);
+
+        dSlyChick.AddLink(true, dNearAHen);
+        dSlyChick.AddLink(false, aFlee);
+
+        dNearAHen.AddLink(true, aGoTo);
+        dNearAHen.AddLink(false, aGoTo);
+
+        dSissyChick.AddLink(true, dNoHenTooClose);
+        dSissyChick.AddLink(false, aRoam);
+
+        dNoHenTooClose.AddLink(true, aFlee);
+        dNoHenTooClose.AddLink(false, aAlarm);
+
+        // Setup DT
+        dt = new DecisionTree(dDistantFromRooster);
+        StartCoroutine(Patrol());
+
+        RoosterCollider[0] = Rooster.GetComponent<Collider>();
 
     }
 
-    // Update is called once per frame
+    public IEnumerator Patrol()
+    {
+        while (true)
+        {
+            dt.walk();
+            yield return new WaitForSeconds(0.5f);
+        }
+    }
+
+    //---------------------------------------------------------------- DT Decisions ----------------------------------------------------------------------
+
+    private object DistantFromRooster(object o)
+    {
+        return Vector3.Distance(Rooster.transform.position, transform.position) > 4f;
+    }
+
+    private object NearAHen(object o)
+    {
+        return Physics.OverlapSphereNonAlloc(transform.position, ChicksParametersManager.ChickSlyFOV, NearbyHens, HensLayer) > 0;
+    }
+
+    private object PlayerInRange(object o)
+    {
+        return Physics.OverlapSphereNonAlloc(transform.position, ChicksParametersManager.ChickFOV, NearbyPlayers, PlayersLayer) > 0;
+    }
+
+    private object NoPlayerTooClose(object o)
+    {
+        return Vector3.Distance(NearestPlayer.transform.position, transform.position) > ChicksParametersManager.ChickDangerFOV;
+    }
+
+    private object NoHenTooClose(object o)
+    {
+        return Vector3.Distance(NearestHen.transform.position, transform.position) > ChicksParametersManager.ChickDangerFOV;
+    }
+
+    private object CowardChick(object o)
+    {
+        return Personality == ChickPersonalities.COWARD && Physics.OverlapSphereNonAlloc(transform.position, ChicksParametersManager.ChickCowardFOV, NearbyPlayers, PlayersLayer) > 0;
+    }
+
+    private object CockyChick(object o)
+    {
+        return Personality == ChickPersonalities.COCKY;
+    }
+
+    private object CuriousChick(object o)
+    {
+        return Personality == ChickPersonalities.CURIOUS;
+    }
+
+    private object SissyChick(object o)
+    {
+        return Personality == ChickPersonalities.SISSY;
+    }
+
+    private object SlyChick(object o)
+    {
+        return Personality == ChickPersonalities.SISSY && Physics.OverlapSphereNonAlloc(transform.position, ChicksParametersManager.ChickFOV, NearbyHens, HensLayer) > 0;
+    }
+
+    //---------------------------------------------------------------- DT Actions ----------------------------------------------------------------------
+
+    private object CatchUp(object o)
+    {
+        CurrentStatus = ChickStatus.CATCHINGUP;
+        movDelegate.SetDestination(Rooster.transform.position);
+        movDelegate.SetSpeed(6f);
+        return null;
+    }
+
+    private object GoTo(object o)
+    {
+        CurrentStatus = ChickStatus.GOINGTO;
+        GetComponent<GoToBehaviour>().ExecuteBehaviour(NearestPlayer);
+        return null;
+
+    }
+
+    private object StareAt(object o)
+    {
+        CurrentStatus = ChickStatus.STARING;
+        transform.rotation = Quaternion.LookRotation(NearestPlayer.transform.position - transform.position);
+        return null;
+    }
+
+    private object Flee(object o)
+    {
+        CurrentStatus = ChickStatus.FLEEING;
+        GetComponent<FleeBehaviour>().ExecuteBehaviour(NearestPlayer);
+        return null;
+    }
+
+    private object Alarm(object o)
+    {
+        timer = 0;
+        CurrentStatus = ChickStatus.ALARM;
+        GetComponent<AlarmBehaviour>().ExecuteBehaviour(NearestPlayer);
+        return null;
+    }
+
+    private object Roam(object o)
+    {
+        CurrentStatus = ChickStatus.ROAMING;
+        GetComponent<RoamingBehaviour>().ExecuteBehaviour(Rooster);
+        return null;
+    }
+
+    private void StopAndStare(GameObject target)
+    {
+        //agent.SetDestination(transform.position);
+        transform.rotation = Quaternion.LookRotation(target.transform.position - transform.position);
+    }
+
+    private GameObject FindNearest(Collider[] Neighborgs)
+    {
+        float distance = 0f;
+        float nearestDistance = float.MaxValue;
+        GameObject NearestElement = null;
+
+        foreach (Collider NearbyElement in Neighborgs)
+        {
+            if (NearbyElement != null && NearbyElement.gameObject != gameObject)
+            {
+                distance = Vector3.Distance(NearbyElement.transform.position, transform.position);
+                if (distance < nearestDistance)
+                {
+                    nearestDistance = distance;
+                    NearestElement = NearbyElement.gameObject;
+                }
+            }
+        }
+        return NearestElement;
+    }
+
+    /* Update is called once per frame
     void Update()
     {
+
         if (timer < 6f) timer += Time.deltaTime;
         if (timer > ChicksParametersManager.AlarmTime)
         {
-            agent.Resume();
+            //agent.Resume();
             if (Vector3.Distance(Rooster.transform.position, transform.position) > 4f)
             {
                 CurrentStatus = ChickStatus.CATCHINGUP;
-                CatchUp();
+                //CatchUp();
             }
             else
             {
@@ -136,41 +329,7 @@ public class ChickDecisionTree : MonoBehaviour
                 }
             }
         }
-        else agent.Stop();
-    }
-
-    private void CatchUp()
-    {
-        agent.speed = Rooster.GetComponent<NavMeshAgent>().speed;
-        agent.SetDestination(Rooster.transform.position);
-        //transform.rotation = Quaternion.LookRotation(Rooster.transform.position - transform.position);
-        //transform.position = Vector3.MoveTowards(transform.position, Rooster.transform.position, HensParametersManager.HenSpeed * Time.deltaTime);
-    }
-
-    private void StopAndStare(GameObject target)
-    {
-        agent.SetDestination(transform.position);
-        transform.rotation = Quaternion.LookRotation(target.transform.position - transform.position);
-    }
-
-    private GameObject FindNearest(Collider[] Neighborgs)
-    {
-        float distance = 0f;
-        float nearestDistance = float.MaxValue;
-        GameObject NearestElement = null;
-
-        foreach (Collider NearbyElement in Neighborgs)
-        {
-            if (NearbyElement != null && NearbyElement.gameObject != gameObject)
-            {
-                distance = Vector3.Distance(NearbyElement.transform.position, transform.position);
-                if (distance < nearestDistance)
-                {
-                    nearestDistance = distance;
-                    NearestElement = NearbyElement.gameObject;
-                }
-            }
-        }
-        return NearestElement;
-    }
+        
+        //else agent.Stop();
+    }*/
 }
