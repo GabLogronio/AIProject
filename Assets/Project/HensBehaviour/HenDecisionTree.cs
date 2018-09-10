@@ -5,12 +5,14 @@ using UnityEngine.AI;
 
 public class HenDecisionTree : MonoBehaviour {
 
-    public enum HenPersonalities { AGGRESSIVE, COWARD, PROTECTIVE, UNLIKABLE};
-    public enum HenStatus { CATCHINGUP, ENGAGING, FLEEING, GOINGTO, PROTECTING, ROAMING};
+    public enum HenPersonalities { AGGRESSIVE, COWARD, PROTECTIVE, UNLIKABLE };
+    public enum HenStatus { CATCHINGUP, ENGAGING, FLEEING, GOINGTO, PROTECTING, ROAMING };
 
     public HenPersonalities Personality;
     public HenStatus CurrentStatus;
-    private MovementGoToDelegate movDelegate;
+    public float PushForce = 350f;
+
+    private NavMeshAgent movAgent;
 
     public GameObject Rooster;
     private DecisionTree dt;
@@ -26,10 +28,10 @@ public class HenDecisionTree : MonoBehaviour {
     public LayerMask PlayersLayer;
     private Collider[] NearbyPlayers = new Collider[4];
 
-    private float timer = 2f;
+    private float AnimationTimer = HensParametersManager.AttackTime;
 
     // Use this for initialization
-    void Start () {
+    void Start() {
 
         float RandomPersonality = Random.value;
         Debug.Log(gameObject.name + ": " + RandomPersonality);
@@ -39,77 +41,193 @@ public class HenDecisionTree : MonoBehaviour {
         if (RandomPersonality >= 0.9f) Personality = HenPersonalities.UNLIKABLE;
         CurrentStatus = HenStatus.ROAMING;
 
-        movDelegate = GetComponent<MovementGoToDelegate>();
+        movAgent = GetComponent<NavMeshAgent>();
 
         // DT Decisions
+        DTDecision decAnimationStop = new DTDecision(AnimationStop);
+        DTDecision decDistantFromRooster = new DTDecision(DistantFromRooster);
+        DTDecision decPlayerInFOV = new DTDecision(PlayerInFOV);
+        DTDecision decPlayerInAttackRange = new DTDecision(PlayerInAttackRange);
+        DTDecision decChickInAttackRange = new DTDecision(ChickInAttackRange);
+        DTDecision decNearerToTheChick = new DTDecision(NearerToTheChick);
+        DTDecision decCowardHen = new DTDecision(CowardHen);
+        DTDecision decUnlikableHen = new DTDecision(UnlikableHen);
+        DTDecision decProtectiveHen = new DTDecision(ProtectiveHen);
 
         // DT Actions
+        DTAction actWait = new DTAction(Wait);
+        DTAction actChaseRooster = new DTAction(ChaseRooster);
+        DTAction actFlee = new DTAction(Flee);
+        DTAction actProtect = new DTAction(Protect);
+        DTAction actEngageChick = new DTAction(EngageChick);
+        DTAction actEngagePlayer = new DTAction(EngagePlayer);
+        DTAction actChasePlayer = new DTAction(ChasePlayer);
+        DTAction actRoam = new DTAction(Roam);
 
         // DT Links
+        decAnimationStop.AddLink(true, actWait);
+        decAnimationStop.AddLink(false, decDistantFromRooster);
+
+        decDistantFromRooster.AddLink(true, actChaseRooster);
+        decDistantFromRooster.AddLink(false, decPlayerInFOV);
+
+		decPlayerInFOV.AddLink(true, decCowardHen);
+        decPlayerInFOV.AddLink(false, decUnlikableHen);
+
+        decPlayerInAttackRange.AddLink(true, actEngagePlayer);
+        decPlayerInAttackRange.AddLink(false, decProtectiveHen);
+
+        decChickInAttackRange.AddLink(true, actEngageChick);
+        decChickInAttackRange.AddLink(false, actRoam);
+
+        decNearerToTheChick.AddLink(true, actProtect);
+        decNearerToTheChick.AddLink(false, actChasePlayer);
+
+        decCowardHen.AddLink(true, actFlee);
+        decCowardHen.AddLink(false, decPlayerInAttackRange);
+
+        decUnlikableHen.AddLink(true, decChickInAttackRange);
+        decUnlikableHen.AddLink(false, actRoam);
+
+        decProtectiveHen.AddLink(true, decNearerToTheChick);
+        decProtectiveHen.AddLink(false, actChasePlayer);
 
         // Setup DT
+        dt = new DecisionTree(decAnimationStop);
 
     }
 
-    public IEnumerator Patrol()
+    private void Update()
     {
-        while (true)
-        {
-            dt.walk();
-            yield return new WaitForSeconds(0.5f);
-        }
+		dt.walk();
     }
 
     //---------------------------------------------------------------- DT Decisions ----------------------------------------------------------------------
+
+    private object AnimationStop(object o)
+    {
+        return AnimationTimer <= HensParametersManager.AttackTime;
+    }
 
     private object DistantFromRooster(object o)
     {
         return Vector3.Distance(Rooster.transform.position, transform.position) > 4f;
     }
 
+    private object PlayerInFOV(object o)
+    {
+        if ((Personality == HenPersonalities.AGGRESSIVE && Physics.OverlapSphereNonAlloc(transform.position, HensParametersManager.HenAggressiveFOV, NearbyPlayers, PlayersLayer) > 0)
+                    || Physics.OverlapSphereNonAlloc(transform.position, HensParametersManager.HenFOV, NearbyPlayers, PlayersLayer) > 0)
+        {
+            NearestPlayer = FindNearest(NearbyPlayers);
+            return true;
+        }
+        else return false;
+    }
+
+    private object PlayerInAttackRange(object o)
+    {
+        return Vector3.Distance(NearestPlayer.transform.position, transform.position) <= HensParametersManager.HenAttackFOV;
+    }
+
+    private object ChickInAttackRange(object o)
+    {
+        NearestChick = FindNearest(NearbyChicks);
+        return Vector3.Distance(NearestChick.transform.position, transform.position) <= HensParametersManager.HenAttackFOV;
+    }
+
+    private object NearerToTheChick(object o)
+    {
+        NearestChick = FindNearest(NearbyChicks);
+        return Vector3.Distance(transform.position, NearestChick.transform.position) < Vector3.Distance(NearestPlayer.transform.position, NearestChick.transform.position);
+    }
+
+    private object CowardHen(object o)
+    {
+        return Personality == HenPersonalities.COWARD && Physics.OverlapSphereNonAlloc(transform.position, HensParametersManager.HenCowardFOV, NearbyHens, HensLayer) <= 1;
+    }
+
+    private object UnlikableHen(object o)
+    {
+        return Personality == HenPersonalities.UNLIKABLE && Physics.OverlapSphereNonAlloc(transform.position, HensParametersManager.HenProtectiveFOV, NearbyChicks, ChicksLayer) > 0;
+    }
+
+    private object ProtectiveHen(object o)
+    {
+        return Personality == HenPersonalities.PROTECTIVE && Physics.OverlapSphereNonAlloc(transform.position, HensParametersManager.HenProtectiveFOV, NearbyChicks, ChicksLayer) > 0;
+    }
+
     //---------------------------------------------------------------- DT Actions ----------------------------------------------------------------------
 
-    private object CatchUp(object o)
+    private object Wait(object o)
     {
-        CurrentStatus = ChickStatus.CATCHINGUP;
-        movDelegate.SetDestination(Rooster.transform.position);
-        movDelegate.SetSpeed(6f);
+        CurrentStatus = HenStatus.ENGAGING;
+        movAgent.SetDestination(transform.position);
+        AnimationTimer += Time.deltaTime;
+
         return null;
     }
 
-    private object GoTo(object o)
+    private object ChaseRooster(object o)
     {
-        CurrentStatus = ChickStatus.GOINGTO;
-        GetComponent<GoToBehaviour>().ExecuteBehaviour(NearestPlayer);
-        return null;
+        CurrentStatus = HenStatus.CATCHINGUP;
+        movAgent.SetDestination(Rooster.transform.position);
+        movAgent.speed = 6f;
 
+        return null;
     }
 
-    private object StareAt(object o)
+    private object ChasePlayer(object o)
     {
-        CurrentStatus = ChickStatus.STARING;
-        transform.rotation = Quaternion.LookRotation(NearestPlayer.transform.position - transform.position);
+        CurrentStatus = HenStatus.GOINGTO;
+
+        movAgent.speed = 5f;
+        if (Vector3.Distance(transform.position, NearestPlayer.transform.position) > 0.5f)
+            movAgent.SetDestination(NearestPlayer.transform.position);
+        else transform.LookAt(NearestPlayer.transform.position);
         return null;
+
     }
 
     private object Flee(object o)
     {
-        CurrentStatus = ChickStatus.FLEEING;
-        GetComponent<FleeBehaviour>().ExecuteBehaviour(NearestPlayer);
+        CurrentStatus = HenStatus.FLEEING;
+        Vector3 EscapeDirection = transform.position - NearestPlayer.transform.position;
+        movAgent.SetDestination(transform.position + (EscapeDirection.normalized) / 2f);
+        movAgent.speed = 5f;
         return null;
     }
 
-    private object Engage(object o)
+    private object Protect(object o)
     {
-        timer = 0;
-        CurrentStatus = ChickStatus.ALARM;
-        GetComponent<AlarmBehaviour>().ExecuteBehaviour(NearestPlayer);
+        CurrentStatus = HenStatus.PROTECTING;
+        GetComponent<ProtectBehaviour>().ExecuteBehaviour(NearestChick);
+        return null;
+    }
+
+    private object EngagePlayer(object o)
+    {
+        AnimationTimer = 0;
+        CurrentStatus = HenStatus.ENGAGING;
+        NearestPlayer.GetComponent<Rigidbody>().AddForce(transform.forward * PushForce, ForceMode.Impulse);
+        NearestPlayer.GetComponent<Rigidbody>().AddForce(transform.up * PushForce, ForceMode.Impulse);
+        transform.LookAt(NearestPlayer.transform);
+        return null;
+    }
+
+    private object EngageChick(object o)
+    {
+        AnimationTimer = 0;
+        CurrentStatus = HenStatus.ENGAGING;
+        NearestChick.GetComponent<Rigidbody>().AddForce(transform.forward * PushForce, ForceMode.Impulse);
+        NearestChick.GetComponent<Rigidbody>().AddForce(transform.up * PushForce, ForceMode.Impulse);
+        transform.LookAt(NearestChick.transform);
         return null;
     }
 
     private object Roam(object o)
     {
-        CurrentStatus = ChickStatus.ROAMING;
+        CurrentStatus = HenStatus.ROAMING;
         GetComponent<RoamingBehaviour>().ExecuteBehaviour(Rooster);
         return null;
     }

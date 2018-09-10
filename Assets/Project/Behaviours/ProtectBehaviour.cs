@@ -5,8 +5,15 @@ using UnityEngine.AI;
 
 public class ProtectBehaviour : GeneralBehaviour
 {
+    private NavMeshAgent agent;
+
     public LayerMask PlayersLayer;
     private Collider[] NearbyPlayers = new Collider[4];
+
+    private void Start()
+    {
+        agent = GetComponent<NavMeshAgent>();
+    }
 
     override public void ExecuteBehaviour(GameObject target)
     {
@@ -14,8 +21,7 @@ public class ProtectBehaviour : GeneralBehaviour
         GameObject player = FindNearest(NearbyPlayers);
 
         Vector3 ComingDirection = player.transform.position - target.transform.position;
-        //AddForce between the player and the chick
-        //agent.SetDestination(target.transform.position + (ComingDirection.normalized) / 1.5f);
+        agent.SetDestination(target.transform.position + (ComingDirection.normalized) / 1.5f);
 
     }
 

@@ -1,6 +1,7 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.AI;
 using UnityEngine.Networking;
 using UnityEngine.UI;
 
@@ -9,14 +10,14 @@ public class RoosterBehaviour : MonoBehaviour {
     public static RoosterBehaviour instance = null;
     public enum RoosterStates { ROAMING, CHASING, VULNERABLE, RESETTING }
     public RoosterStates CurrentState;
-    private MovementGoToDelegate movDelegate;
+    private NavMeshAgent movAgent;
     //-------------------------------------------------------------- Components --------------------------------------------------------------
     private Animator anim;
     private FSM fsm;
     //-------------------------------------------------------------- Current Status --------------------------------------------------------------
     private GameObject CurrentTarget;
-    public Vector3 CurrentDestination;
-    public int CurrentLives = 3;
+    private Vector3 CurrentDestination;
+    private int CurrentLives = 3;
     private bool Trapped = false;
     private bool Alarm = false;
     //-------------------------------------------------------------- Timers --------------------------------------------------------------
@@ -46,7 +47,7 @@ public class RoosterBehaviour : MonoBehaviour {
     void Start() {
 
         anim = GetComponent<Animator>();
-        movDelegate = GetComponent<MovementGoToDelegate>();
+        movAgent = GetComponent<UnityEngine.AI.NavMeshAgent>();
 
         CurrentDestination = new Vector3(20, 0, 20);
         CurrentTarget = null;
@@ -99,26 +100,28 @@ public class RoosterBehaviour : MonoBehaviour {
     private void RoamingState()
     {
         CurrentState = RoosterStates.ROAMING;
-        Debug.Log(WalkingTime);
-        if (WalkingTime >= 0f)
+
+        if (Vector3.Distance(transform.position, CurrentDestination) < 1f) WalkingTime = 0f;
+
+        if (WalkingTime > 0f)
         {
             //cammina
             WalkingTime -= Time.deltaTime;
             anim.SetBool("Walking", true);
 
-            movDelegate.SetDestination(CurrentDestination);
-            movDelegate.SetSpeed(RoamingSpeed);
+            movAgent.SetDestination(CurrentDestination);
+            movAgent.speed = RoamingSpeed;
 
 
         }
-        else if (WaitingTime >= 0f)
+        else if (WaitingTime > 0f)
         {
             //stai
             WaitingTime -= Time.deltaTime;
             anim.SetBool("Walking", false);
 
-            movDelegate.SetDestination(transform.position);
-            movDelegate.SetSpeed(0f);
+            movAgent.SetDestination(transform.position);
+            movAgent.speed = 0f;
 
         }
         if (WalkingTime <= 0f && WaitingTime <= 0f)
@@ -152,8 +155,8 @@ public class RoosterBehaviour : MonoBehaviour {
         CurrentState = RoosterStates.CHASING;
         anim.SetBool("Walking", true);
 
-        movDelegate.SetDestination(CurrentDestination);
-        movDelegate.SetSpeed(ChasingSpeed);
+        movAgent.SetDestination(CurrentTarget.transform.position);
+        movAgent.speed = ChasingSpeed;
 
     }
 
@@ -163,16 +166,17 @@ public class RoosterBehaviour : MonoBehaviour {
 
         ResettingTimer -= Time.deltaTime;
 
-        if (ResettingTimer >= 11.2f)
+        if (ResettingTimer >= 9f)
         {
+            movAgent.SetDestination(transform.position);
             anim.SetBool("Walking", false);
 
         }
-        else if (ResettingTimer < 11.2f)
+        else if (ResettingTimer < 9f)
         {
             anim.SetBool("Walking", true);
-            movDelegate.SetDestination(CurrentDestination);
-            movDelegate.SetSpeed(ResettingSpeed);
+            movAgent.SetDestination(CurrentDestination);
+            movAgent.speed = ResettingSpeed;
 
         }
     }
@@ -257,7 +261,7 @@ public class RoosterBehaviour : MonoBehaviour {
 
     private bool EndedReset()
     {
-        return ResettingTimer <= 0f;
+        return ResettingTimer <= 0f || (CurrentState == RoosterStates.RESETTING && Vector3.Distance(CurrentDestination, transform.position) < 4f);
     }
 
     private bool InTrappedState()
@@ -274,10 +278,10 @@ public class RoosterBehaviour : MonoBehaviour {
 
     private void ResetTimers()
     {
-        ResettingTimer = 12f;
+        ResettingTimer = 10f;
         VulnerableTimer = 6f;
         AttackingTimer = 3f;
-        WalkingTime = 7f;
+        WalkingTime = 0f; //------------------------------------------------> To change in 5f
         WaitingTime = 6f;
     }
 
