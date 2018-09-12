@@ -180,7 +180,7 @@ public class ChickDecisionTree : MonoBehaviour
     {
         CurrentStatus = ChickStatus.CATCHINGUP;
         movAgent.SetDestination(Rooster.transform.position);
-        movAgent.speed = 6f;
+        movAgent.speed = 5f;
         return null;
     }
 
@@ -188,7 +188,7 @@ public class ChickDecisionTree : MonoBehaviour
     {
         CurrentStatus = ChickStatus.GOINGTO;
 
-        movAgent.speed = 5f;
+        movAgent.speed = 3.5f;
         if (Vector3.Distance(transform.position, NearestPlayer.transform.position) > 0.5f)
             movAgent.SetDestination(NearestPlayer.transform.position);
         else transform.LookAt(new Vector3(NearestPlayer.transform.position.x, transform.position.y, NearestPlayer.transform.position.z));
@@ -201,7 +201,7 @@ public class ChickDecisionTree : MonoBehaviour
         CurrentStatus = ChickStatus.GOINGTO;
         NearestHen = FindNearest(NearbyHens);
 
-        movAgent.speed = 5f;
+        movAgent.speed = 3.5f;
         if (Vector3.Distance(transform.position, NearestHen.transform.position) > 0.5f)
             movAgent.SetDestination(NearestHen.transform.position);
         else transform.LookAt(new Vector3(NearestHen.transform.position.x, transform.position.y, NearestHen.transform.position.z));
@@ -222,7 +222,7 @@ public class ChickDecisionTree : MonoBehaviour
         CurrentStatus = ChickStatus.FLEEING;
         Vector3 EscapeDirection = transform.position - NearestPlayer.transform.position;
         movAgent.SetDestination(transform.position + (EscapeDirection.normalized) / 1.5f);
-        movAgent.speed = 5f;
+        movAgent.speed = 3.5f;
         return null;
     }
 
@@ -232,7 +232,7 @@ public class ChickDecisionTree : MonoBehaviour
         NearestHen = FindNearest(NearbyHens);
         Vector3 EscapeDirection = transform.position - NearestHen.transform.position;
         movAgent.SetDestination(transform.position + (EscapeDirection.normalized) / 1.5f);
-        movAgent.speed = 5f;
+        movAgent.speed = 3.5f;
         return null;
     }
 
@@ -247,7 +247,7 @@ public class ChickDecisionTree : MonoBehaviour
     private object Roam(object o)
     {
         CurrentStatus = ChickStatus.ROAMING;
-        movAgent.speed = 3.5f;
+        movAgent.speed = 2.5f;
         GetComponent<RoamingBehaviour>().ExecuteBehaviour(Rooster);
         return null;
     }

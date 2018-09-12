@@ -281,7 +281,7 @@ public class RoosterBehaviour : MonoBehaviour {
         ResettingTimer = 10f;
         VulnerableTimer = 6f;
         AttackingTimer = 3f;
-        WalkingTime = 0f; //------------------------------------------------> To change in 5f
+        WalkingTime = 5f; //------------------------------------------------> To change in 0f to keep him in idle
         WaitingTime = 6f;
     }
 

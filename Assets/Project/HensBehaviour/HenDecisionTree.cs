@@ -172,7 +172,7 @@ public class HenDecisionTree : MonoBehaviour {
     {
         CurrentStatus = HenStatus.CATCHINGUP;
         movAgent.SetDestination(Rooster.transform.position);
-        movAgent.speed = 6f;
+        movAgent.speed = 5f;
 
         return null;
     }
@@ -181,7 +181,7 @@ public class HenDecisionTree : MonoBehaviour {
     {
         CurrentStatus = HenStatus.GOINGTO;
 
-        movAgent.speed = 5f;
+        movAgent.speed = 3.5f;
         if (Vector3.Distance(transform.position, NearestPlayer.transform.position) > 0.5f)
             movAgent.SetDestination(NearestPlayer.transform.position);
         else transform.LookAt(NearestPlayer.transform.position);
@@ -194,7 +194,7 @@ public class HenDecisionTree : MonoBehaviour {
         CurrentStatus = HenStatus.FLEEING;
         Vector3 EscapeDirection = transform.position - NearestPlayer.transform.position;
         movAgent.SetDestination(transform.position + (EscapeDirection.normalized) / 2f);
-        movAgent.speed = 5f;
+        movAgent.speed = 3.5f;
         return null;
     }
 
@@ -228,6 +228,7 @@ public class HenDecisionTree : MonoBehaviour {
     private object Roam(object o)
     {
         CurrentStatus = HenStatus.ROAMING;
+        movAgent.speed = 2.5f;
         GetComponent<RoamingBehaviour>().ExecuteBehaviour(Rooster);
         return null;
     }
