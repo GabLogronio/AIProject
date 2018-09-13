@@ -27,7 +27,7 @@ public class RoamingBehaviour : GeneralBehaviour {
         Vector3 RoosterMovement = target.transform.position - LastRoosterPosition;
         timer += Time.deltaTime;
 
-        if (RoosterMovement.magnitude <= 0.1f)
+        if (RoosterMovement.magnitude <= 0.001f)
         {
             if (timer >= TimeToChange || reset)
             {

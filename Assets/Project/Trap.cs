@@ -11,6 +11,14 @@ public class Trap : MonoBehaviour {
             other.gameObject.GetComponent<RoosterBehaviour>().Trap();
             Invoke("Despawn", 6f);
         }
+
+        if (other.gameObject.layer == 9)
+        {
+            other.gameObject.GetComponent<Rigidbody>().AddForce(transform.up * 1000, ForceMode.Impulse);
+            other.gameObject.GetComponent<BasicPlayerController>().Respawn();
+            Despawn();
+        
+        }
     }
 
     private void Despawn()

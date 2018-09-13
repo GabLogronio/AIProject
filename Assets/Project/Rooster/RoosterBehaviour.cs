@@ -10,6 +10,7 @@ public class RoosterBehaviour : MonoBehaviour {
     public static RoosterBehaviour instance = null;
     public enum RoosterStates { ROAMING, CHASING, VULNERABLE, RESETTING }
     public RoosterStates CurrentState;
+    public bool IdleRooster = false;
     private NavMeshAgent movAgent;
     //-------------------------------------------------------------- Components --------------------------------------------------------------
     private Animator anim;
@@ -158,6 +159,11 @@ public class RoosterBehaviour : MonoBehaviour {
         movAgent.SetDestination(CurrentTarget.transform.position);
         movAgent.speed = ChasingSpeed;
 
+        if (Vector3.Distance(transform.position, CurrentTarget.transform.position) < 1.5f)
+        {
+            SingleTargetAttack();
+        }
+
     }
 
     private void ResettingState()
@@ -281,7 +287,8 @@ public class RoosterBehaviour : MonoBehaviour {
         ResettingTimer = 10f;
         VulnerableTimer = 6f;
         AttackingTimer = 3f;
-        WalkingTime = 5f; //------------------------------------------------> To change in 0f to keep him in idle
+        if (IdleRooster) WalkingTime = 0f;
+        else WalkingTime = 5f;
         WaitingTime = 6f;
     }
 
@@ -326,8 +333,9 @@ public class RoosterBehaviour : MonoBehaviour {
     public void SingleTargetAttack()
     {
         anim.SetTrigger("Attack");
-        CurrentTarget.GetComponent<Rigidbody>().AddForce((CurrentTarget.transform.position - transform.position).normalized * 500f, ForceMode.Impulse);
-        //CurrentTarget.GetComponent<BasicController>().Die ();
+        CurrentTarget.GetComponent<Rigidbody>().AddForce((CurrentTarget.transform.position - transform.position).normalized * 100f, ForceMode.Impulse);
+        CurrentTarget.GetComponent<Rigidbody>().AddForce(transform.up * 100f, ForceMode.Impulse);
+        CurrentTarget.GetComponent<BasicPlayerController>().Die ();
         CurrentState = RoosterStates.ROAMING;
     }
 
@@ -340,11 +348,13 @@ public class RoosterBehaviour : MonoBehaviour {
 
         foreach (Collider Player in NearbyPlayers)
         {
-            if (Player != null) Player.gameObject.GetComponent<Rigidbody>().AddForce((Player.gameObject.transform.position - transform.position).normalized * 500f, ForceMode.Impulse);
-            //if (kill) {
-            //Player.gameObject.GetComponent<BasicController>().Die ();
-            //}
+            if (Player != null)
+            {
+                Player.gameObject.GetComponent<Rigidbody>().AddForce((Player.gameObject.transform.position - transform.position).normalized * 100f, ForceMode.Impulse);
+                Player.gameObject.GetComponent<Rigidbody>().AddForce(transform.up * 100f, ForceMode.Impulse);
+                if(kill) Player.gameObject.GetComponent<BasicPlayerController>().Die();
 
+            }
         }
         switch (CurrentLives)
         {

@@ -75,4 +75,16 @@ public class BasicPlayerController : MonoBehaviour {
         return Physics.CheckCapsule(CapsuleColl.bounds.center, new Vector3(CapsuleColl.bounds.center.x, CapsuleColl.bounds.min.y, CapsuleColl.bounds.center.z), CapsuleColl.radius * 0.9f, GroundLayer);
     }
 
+    public void Die()
+    {
+        Invoke("Respawn", 1f);
+    }
+
+    public void Respawn()
+    {
+        transform.position = new Vector3(0f, 0.5f, 0f);
+        rb.velocity = new Vector3(0f, 0f, 0f);
+        agent.SetDestination(transform.position);
+    }
+
 }
